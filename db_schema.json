@@ -1,0 +1,17 @@
+{
+  "genres": "(id serial primary key, name varchar)",
+  "languages": "(id serial primary key, lang_key varchar, name varchar)",
+  "collections": "(id serial primary key, name varchar)",
+  "movies": "(id serial primary key, title varchar, release_date varchar, budget integer, revenue integer, popularity float, runtime integer, original_language integer, belongs_to_collection integer, foreign key (original_language) references languages (id), foreign key (belongs_to_collection) references collections (id))",
+  "movies_genres": "(id serial primary key, movie_id integer, genre_id integer, foreign key (movie_id) references movies (id), foreign key (genre_id) references genres (id))",
+  "persons": "(id serial primary key, name varchar)",
+  "directors": "(id serial primary key, movie_id integer, director_id integer, foreign key (movie_id) references movies (id), foreign key (director_id) references persons (id))",
+  "actors": "(id serial primary key, person_id integer, movie_id integer, order_id integer, foreign key (person_id) references persons (id), foreign key (movie_id) references movies (id))",
+  "countries": "(id serial primary key, code varchar, name varchar)",
+  "production_companies": "(id serial primary key, name varchar)",
+  "keywords": "(id serial primary key, keyword varchar)",
+  "movies_keywords": "(id serial primary key, movie_id integer, keyword_id integer, foreign key (movie_id) references movies (id), foreign key (keyword_id) references keywords (id))",
+  "spoken_languages": "(id serial primary key, movie_id integer, language_id integer, foreign key (movie_id) references movies (id), foreign key (language_id) references languages (id))",
+  "production_countries": "(id serial primary key, movie_id integer, country_id integer, foreign key (movie_id) references movies (id), foreign key (country_id) references countries (id))",
+  "movies_production_companies": "(id serial primary key, movie_id integer, production_company_id integer, foreign key (movie_id) references movies (id), foreign key (production_company_id) references production_companies (id))"
+}

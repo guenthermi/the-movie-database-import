@@ -1,0 +1,7 @@
+{
+	"username": "postgres",
+	"password": "postgres",
+	"host": "localhost",
+	"db_name": "test_db",
+	"batch_size": 50000
+}
