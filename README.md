@@ -3,7 +3,7 @@ This script to import data from the The Movie Database (Data URL: https://www.ka
 
 # Run the Skript
 In order to run the script you have to download and extract the datset available at https://www.kaggle.com/rounakbanik/the-movies-dataset.
-The script uses the `movies_metadata.csv`, `credits.csv` and `keywords.csv` file from the dataset.
+The script uses the `movies_metadata.csv`, `credits.csv`, `keywords.csv` and `ratings.csv` (or `ratings_small.csv`) file from the dataset.
 
 Then you have to define the *database connection information* in `db_config.json`.
 

@@ -2,7 +2,7 @@
   "genres": "(id serial primary key, name varchar)",
   "languages": "(id serial primary key, lang_key varchar, name varchar)",
   "collections": "(id serial primary key, name varchar)",
-  "movies": "(id serial primary key, title varchar, release_date varchar, budget integer, revenue integer, popularity float, runtime integer, original_language integer, belongs_to_collection integer, foreign key (original_language) references languages (id), foreign key (belongs_to_collection) references collections (id))",
+  "movies": "(id serial primary key, title varchar, release_date varchar, budget integer, revenue integer, popularity float, runtime integer, rating float, original_language integer, belongs_to_collection integer, foreign key (original_language) references languages (id), foreign key (belongs_to_collection) references collections (id))",
   "movies_genres": "(id serial primary key, movie_id integer, genre_id integer, foreign key (movie_id) references movies (id), foreign key (genre_id) references genres (id))",
   "persons": "(id serial primary key, name varchar)",
   "directors": "(id serial primary key, movie_id integer, director_id integer, foreign key (movie_id) references movies (id), foreign key (director_id) references persons (id))",

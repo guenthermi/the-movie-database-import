@@ -6,9 +6,10 @@ import pandas as pd
 import psycopg2
 import json
 from collections import Counter
+from collections import defaultdict
 
-HELP_TEXT = ('USAGE: \033[1mloader.py\033[0m dataset_base_path\n' +
-             '\tdataset_base_path: path to the extracted movie dataset folder')
+HELP_TEXT = ('USAGE: \033[1mloader.py\033[0m dataset_base_path\n'
+             + '\tdataset_base_path: path to the extracted movie dataset folder')
 
 # dataset url:
 # https://www.kaggle.com/rounakbanik/the-movies-dataset#movies_metadata.csv
@@ -17,12 +18,14 @@ HELP_TEXT = ('USAGE: \033[1mloader.py\033[0m dataset_base_path\n' +
 CREDITS = 'credits.csv'
 MOVIES = 'movies_metadata.csv'
 KEYWORDS = 'keywords.csv'
+RATINGS = 'ratings.csv'  # use 'ratings_small.csv' if ratings are unimportant for you
 DB_CONFIG_PATH = 'db_config.json'
 
 # schemes of the database tables
 TABLE_SCHEMA_FILE = 'db_schema.json'
 
-get_named_entity = lambda x: x.replace(' ', '_')
+
+def get_named_entity(x): return x.replace(' ', '_')
 
 
 def is_valid_str(term):
@@ -53,9 +56,9 @@ def create_connection(db_config):
     # create db connection
     try:
         con = psycopg2.connect(
-            "dbname='" + db_config['db_name'] + "' user='" +
-            db_config['username'] + "' host='" + db_config['host'] +
-            "' password='" + db_config['password'] + "'")
+            "dbname='" + db_config['db_name'] + "' user='"
+            + db_config['username'] + "' host='" + db_config['host']
+            + "' password='" + db_config['password'] + "'")
     except:
         print('ERROR: Can not connect to database')
         return
@@ -181,6 +184,8 @@ def extract_movie_data(df_movies):
                     lang_id = current_lang_id
                     current_lang_id += 1
                 else:
+                    if extracted_languages_iso_key[lang['iso_639_1']]['name'] == None:
+                        extracted_languages_iso_key[lang['iso_639_1']]['name'] = lang['name']
                     lang_id = extracted_languages_iso_key[lang['iso_639_1']][
                         'id']
                 if lang_id != None:
@@ -304,6 +309,32 @@ def extract_keyword_data(df_keywords):
     return extracted_keywords
 
 
+def extract_rating_data(df_ratings):
+    # define columns which information is useful
+    RELEVANT_COLUMNS = ['movieId', 'rating']
+
+    # reduce data to relevant columns
+    ratings_reduced = df_ratings[RELEVANT_COLUMNS]
+
+    # extract data and create output directory
+    ratings_for_movies = defaultdict(list)
+    count = 0
+    for line in ratings_reduced.iterrows():
+        count += 1
+        if (count % 100000 == 0):
+            print('Proceed %d ratings' % (count,))
+        try:
+            movie_id = int(line[1]['movieId'])
+            rating = float(line[1]['rating'])
+            ratings_for_movies[movie_id].append(rating)
+        except ValueError:
+            print('Problems with parsing: ', line)
+    for key in ratings_for_movies:
+        ratings_for_movies[key] = sum(
+            ratings_for_movies[key]) / len(ratings_for_movies[key])
+    return ratings_for_movies
+
+
 def process_buffers(buffers, con, cur, batch_size):
     for buffer, query in buffers.values():
         if len(buffer) >= batch_size:
@@ -328,13 +359,13 @@ def get_db_literal(value):
         return str(value)
 
 
-def insert_movie_meta_data(data, con, cur, batch_size):
+def insert_movie_meta_data(data, rating_data, con, cur, batch_size):
 
     # query templates
     QUERY_INSERT_MOVIES = (
-        "INSERT INTO movies (id, title, release_date, budget, " +
-        "revenue, popularity, runtime, original_language, " +
-        "belongs_to_collection) VALUES %s")
+        "INSERT INTO movies (id, title, release_date, budget, "
+        + "revenue, popularity, runtime, rating, original_language, "
+        + "belongs_to_collection) VALUES %s")
     QUERY_INSERT_GENRES_RELATION = (
         "INSERT INTO movies_genres (movie_id, genre_id) VALUES %s")
     QUERY_INSERT_PRODUCTION_COMPANY_RELATION = (
@@ -371,6 +402,7 @@ def insert_movie_meta_data(data, con, cur, batch_size):
         #       'spoken_languages', 'production_companies', 'production_countries'
         # DB-Columns: id, title, release_date, budget, revenue, popularity,
         #             runtime, original_language, belongs_to_collection
+        rating = rating_data[movie_id] if movie_id in rating_data else None
         buffers['movies_content'][0].append(
             [(str(movie_id), get_db_literal(movie_values['title']),
               get_db_literal(movie_values['release_date']),
@@ -378,6 +410,7 @@ def insert_movie_meta_data(data, con, cur, batch_size):
               get_db_literal(movie_values['revenue']),
               get_db_literal(movie_values['popularity']),
               get_db_literal(movie_values['runtime']),
+              get_db_literal(rating),
               get_db_literal(movie_values['original_language']),
               get_db_literal(movie_values['collection']))])
         for value in movie_values['genres']:
@@ -521,6 +554,7 @@ def main(argc, argv):
     movies_path = dataset_base_path + MOVIES
     keywords_path = dataset_base_path + KEYWORDS
     credits_path = dataset_base_path + CREDITS
+    ratings_path = dataset_base_path + RATINGS
 
     df_movies = pd.read_csv(movies_path)
     print('Read', df_movies.size, 'movies')
@@ -528,6 +562,8 @@ def main(argc, argv):
     print('Read', df_credits.size, 'credits')
     df_keywords = pd.read_csv(keywords_path)
     print('Read', df_keywords.size, 'keyword assignments')
+    df_ratings = pd.read_csv(ratings_path)
+    print('Read', df_ratings.size, 'ratings')
 
     print('Extract movie data from csv ...')
     extracted_movie_data = extract_movie_data(df_movies)
@@ -535,6 +571,8 @@ def main(argc, argv):
     extracted_credits_data = extract_credits_data(df_credits)
     print('Extract keywords data from csv ...')
     extracted_keywords = extract_keyword_data(df_keywords)
+    print('Extract rating data from csv ...')
+    extracted_ratings = extract_rating_data(df_ratings)
 
     print('Connect to database ...')
     f_db_config = open(DB_CONFIG_PATH, 'r')
@@ -556,7 +594,8 @@ def main(argc, argv):
     print('Insert data into database ...')
     disable_triggers(schema_info, con, cur)
     print('Insert movie meta data ...')
-    insert_movie_meta_data(extracted_movie_data, con, cur, batch_size)
+    insert_movie_meta_data(extracted_movie_data,
+                           extracted_ratings, con, cur, batch_size)
     print('Insert credits data ...')
     insert_credits_data(extracted_credits_data, con, cur, batch_size)
     print('Insert keywords data ...')
