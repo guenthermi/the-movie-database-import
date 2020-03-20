@@ -49,7 +49,6 @@ def is_positive_float(number):
     except:
         return False
 
-
 def create_connection(db_config):
     con = None
     cur = None
@@ -64,7 +63,6 @@ def create_connection(db_config):
         return
     cur = con.cursor()
     return con, cur
-
 
 def disable_triggers(schema_info, con, cur):
     for table_name in schema_info.keys():
@@ -99,7 +97,7 @@ def extract_movie_data(df_movies):
     RELEVANT_COLUMNS = [
         'id', 'original_title', 'belongs_to_collection', 'original_language',
         'spoken_languages', 'production_companies', 'production_countries',
-        'release_date', 'genres', 'budget', 'popularity', 'revenue', 'runtime'
+        'release_date', 'genres', 'budget', 'popularity', 'revenue', 'runtime', 'overview'
     ]
 
     # reduce data frame to relevant columns
@@ -114,6 +112,7 @@ def extract_movie_data(df_movies):
     extracted_countries_id_key = dict()
     extracted_collections = dict()
     extracted_production_companies = dict()
+    extracted_overviews = dict()
 
     current_lang_id = 0
     current_country_id = 0
@@ -135,10 +134,12 @@ def extract_movie_data(df_movies):
         values['popularity'] = float(
             line[1]['popularity']) if is_positive_float(
                 line[1]['popularity']) else None
-        values['revenue'] = int(line[1]['budget']) if is_positive_integer(
-            line[1]['budget']) else None
+        values['revenue'] = int(line[1]['revenue']) if is_positive_integer(
+            line[1]['revenue']) else None
         values['runtime'] = int(line[1]['runtime']) if is_positive_integer(
             line[1]['runtime']) else None
+        values['overview'] = str(line[1]['overview']) if len(
+            str(line[1]['overview'])) > 0 else None
 
         # add entity values
         values['genres'] = set()
@@ -364,7 +365,7 @@ def insert_movie_meta_data(data, rating_data, con, cur, batch_size):
     # query templates
     QUERY_INSERT_MOVIES = (
         "INSERT INTO movies (id, title, release_date, budget, "
-        + "revenue, popularity, runtime, rating, original_language, "
+        + "revenue, popularity, runtime, rating, overview, original_language, "
         + "belongs_to_collection) VALUES %s")
     QUERY_INSERT_GENRES_RELATION = (
         "INSERT INTO movies_genres (movie_id, genre_id) VALUES %s")
@@ -398,7 +399,7 @@ def insert_movie_meta_data(data, rating_data, con, cur, batch_size):
 
     for movie_id, movie_values in movies_data.items():
         # keys: 'title', 'release_date', 'budget', 'popularity', 'revenue',
-        #       'runtime', 'genres', 'collection', 'original_language',
+        #       'runtime', 'overview', 'genres', 'collection', 'original_language',
         #       'spoken_languages', 'production_companies', 'production_countries'
         # DB-Columns: id, title, release_date, budget, revenue, popularity,
         #             runtime, original_language, belongs_to_collection
@@ -411,6 +412,7 @@ def insert_movie_meta_data(data, rating_data, con, cur, batch_size):
               get_db_literal(movie_values['popularity']),
               get_db_literal(movie_values['runtime']),
               get_db_literal(rating),
+              get_db_literal(movie_values['overview']),
               get_db_literal(movie_values['original_language']),
               get_db_literal(movie_values['collection']))])
         for value in movie_values['genres']:
